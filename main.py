@@ -32,29 +32,30 @@ You are an expert data analyst AI. Your task is to write a single, self-containe
 
 **CRITICAL SCRIPTING RULES:**
 
-1.  **Data Loading:** Load data from the provided files (`.csv`) or by scraping (`pandas.read_html`).
+1.  **Data Loading & Inspection:** Load data, then immediately print the `.dtypes` and `.head()` to `stderr` to understand the data's structure and types.
 
-2.  **Data Inspection (Mandatory First Step):** After loading a DataFrame, you MUST print its `dtypes` and `head` to `stderr`. This is essential for understanding the data before you operate on it.
-    *   **Example:** `import sys; print(df.dtypes, file=sys.stderr)`
+2.  **Conditional Data Cleaning:** Before performing calculations, check if columns that should be numeric have a `dtype` of `object`. If they do, clean them by removing non-numeric characters and using `pd.to_numeric`. If they are already `int64` or `float64`, do nothing.
 
-3.  **Conditional Data Cleaning (Mandatory Second Step):** You must ensure data is in the correct format before analysis. Do not assume a column needs cleaning; **check its `dtype` first.**
-    *   If a column that should be numeric (like 'Price' or 'Revenue') has a `dtype` of `object` (meaning it's a string), THEN you must clean it.
-    *   **Example of Intelligent Cleaning:**
+3.  **JSON Serialization (CRUCIAL FINAL STEP):** The `json.dumps()` function cannot handle special NumPy types like `int64` or `float64`. Before building your final dictionary or list for the output, you MUST convert all values into native Python types.
+    *   **Example:**
         ```python
-        # After inspecting dtypes, you see 'Price' is an 'object' column
-        if df['Price'].dtype == 'object':
-            df['Price'] = df['Price'].str.replace(r'[$,]', '', regex=True)
-            df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+        # This will FAIL because .sum() returns a numpy.int64
+        # result = {"total_revenue": df['Revenue'].sum()}
         
-        # Now the column is guaranteed to be numeric and safe for calculations.
+        # This is CORRECT because we cast to a native Python int
+        total_revenue = df['Revenue'].sum()
+        product_name = df.loc[df['Revenue'].idxmax()]['Product'] # This might be a numpy object
+        
+        result = {
+            "total_revenue": int(total_revenue),
+            "highest_product": str(product_name)
+        }
+        print(json.dumps(result))
         ```
-    *   If the `dtype` is already `int64` or `float64`, no string cleaning is needed.
 
 4.  **SQL Queries:** For large, remote datasets, generate the SQL query text as the answer; do not execute it.
 
 5.  **Output:** The final result MUST be a single line of valid JSON printed to `stdout`. All debugging prints go to `stderr`.
-
-**Final Step:** Your script must end by printing the final JSON result to `stdout`.
 """
 @app.post("/api/")
 async def data_analyst_agent(request: Request):
