@@ -7,6 +7,7 @@ import logging
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from openai import AsyncOpenAI
+import re
 
 # --- Configuration ---
 # It's recommended to use environment variables for sensitive data like API keys.
@@ -99,10 +100,22 @@ async def data_analyst_agent(request: Request):
         
         script_content = response.choices[0].message.content
         # Clean up the response to get raw Python code
-        if script_content.startswith("```python"):
-            script_content = script_content[9:]
-        if script_content.endswith("```"):
-            script_content = script_content[:-3]
+        # New, more robust cleanup logic to find and extract only the Python code
+        code_match = re.search(r"```python\n(.*?)\n```", script_content, re.DOTALL)
+        if code_match:
+            # If the AI wrapped the code in ```python ... ```, extract it
+            script_content = code_match.group(1).strip()
+        else:
+            # If no markdown block is found, try to clean up the response anyway
+            # This handles cases where the LLM might just add text without the ```
+            lines = script_content.split('\n')
+            # A simple heuristic: find the first line that looks like Python
+            start_index = 0
+            for i, line in enumerate(lines):
+                if "import " in line or "def " in line or "print(" in line:
+                    start_index = i
+                    break
+            script_content = '\n'.join(lines[start_index:])
         
         script_path = os.path.join(work_dir, "agent_script.py")
         with open(script_path, "w") as f:
