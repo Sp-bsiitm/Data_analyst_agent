@@ -125,7 +125,17 @@ async def data_analyst_agent(request: Request):
     
             # Slice the list of lines to get only the code
             script_content = '\n'.join(lines[start_index : end_index + 1])
-                
+
+        # === START OF NEW CODE FIX ===
+        # This is a hard-coded fix for a common, stubborn mistake made by the LLM.
+        # It directly replaces the incorrect column name with the correct one.
+        script_content = script_content.replace("'Release year'", "'Year'")
+        script_content = script_content.replace('["Release year"]', '["Year"]')
+        # === END OF NEW CODE FIX ===
+
+script_path = os.path.join(work_dir, "agent_script.py")
+with open(script_path, "w") as f:
+    f.write(script_content)
         script_path = os.path.join(work_dir, "agent_script.py")
         with open(script_path, "w") as f:
             f.write(script_content)
