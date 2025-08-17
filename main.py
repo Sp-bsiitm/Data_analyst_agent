@@ -92,7 +92,7 @@ async def data_analyst_agent(request: Request):
         response = await client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", content": SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.0
