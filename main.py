@@ -92,57 +92,43 @@ async def data_analyst_agent(request: Request):
         response = await client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.0
         )
         
         script_content = response.choices[0].message.content
-        # Clean up the response to get raw Python code
-        # Final, most robust cleanup logic to extract only the Python code.
-        # Attempt to find a markdown block first, as it's the most reliable.
+
+        # 4. Clean up the LLM's response to get raw Python code
         code_match = re.search(r"```python\n(.*?)\n```", script_content, re.DOTALL)
         if code_match:
             script_content = code_match.group(1).strip()
         else:
-            # If no markdown block, fallback to finding the start and end of the code.
             lines = script_content.strip().split('\n')
             start_index = 0
-            end_index = len(lines) -1
-        
-            # Find the first line of code (e.g., the first import)
+            end_index = len(lines) - 1
             for i, line in enumerate(lines):
                 if line.strip().startswith(('import ', 'from ')):
                     start_index = i
                     break
-            
-            # Find the last line of code (the final print statement)
             for i in range(len(lines) - 1, start_index - 1, -1):
                 if lines[i].strip().startswith('print(json.dumps'):
                     end_index = i
                     break
-    
-            # Slice the list of lines to get only the code
             script_content = '\n'.join(lines[start_index : end_index + 1])
 
-        # === START OF NEW CODE FIX ===
-        # This is a hard-coded fix for a common, stubborn mistake made by the LLM.
-        # It directly replaces the incorrect column name with the correct one.
+        # 5. Apply hard-coded patch for known LLM errors
         script_content = script_content.replace("'Release year'", "'Year'")
         script_content = script_content.replace('["Release year"]', '["Year"]')
-        # === END OF NEW CODE FIX ===
-
-script_path = os.path.join(work_dir, "agent_script.py")
-with open(script_path, "w") as f:
-    f.write(script_content)
+        
         script_path = os.path.join(work_dir, "agent_script.py")
         with open(script_path, "w") as f:
             f.write(script_content)
 
         logging.info(f"[{session_id}] Executing generated script.")
 
-        # 4. Execute the generated script in a sandboxed environment
+        # 6. Execute the generated script in a sandboxed environment
         try:
             result = subprocess.run(
                 ["python3", script_path],
@@ -150,13 +136,11 @@ with open(script_path, "w") as f:
                 text=True,
                 timeout=EXECUTION_TIMEOUT,
                 cwd=work_dir,
-                check=True # Will raise CalledProcessError if return code is non-zero
+                check=True 
             )
             
-            # The script should only print the final JSON to stdout
             stdout = result.stdout.strip()
             
-            # 5. Parse and return the result
             try:
                 json_output = json.loads(stdout)
                 return JSONResponse(content=json_output)
@@ -169,8 +153,6 @@ with open(script_path, "w") as f:
             raise HTTPException(status_code=504, detail="Analysis task timed out.")
         except subprocess.CalledProcessError as e:
             logging.error(f"[{session_id}] Script execution failed with stderr:\n{e.stderr}")
-            # To meet the requirement of always returning a JSON structure, return an error object.
-            # You could also try to guess the expected format (list/dict) and return an empty one.
             error_response = {
                 "error": "Script execution failed",
                 "stderr": e.stderr
@@ -181,7 +163,7 @@ with open(script_path, "w") as f:
         logging.error(f"[{session_id}] An unexpected error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # 6. Clean up the temporary directory
+        # 7. Clean up the temporary directory
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir)
         logging.info(f"[{session_id}] Cleanup complete.")
