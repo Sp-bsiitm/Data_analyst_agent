@@ -54,7 +54,6 @@ You are an expert data analyst AI. Your task is to write a single, self-containe
 7.  **Final Step:** Your script must end by printing the JSON. For example:
     `import json; print(json.dumps({"answer1": 42, "plot": "data:image/png;base64,..."}))`
 """
-
 @app.post("/api/")
 async def data_analyst_agent(request: Request):
     session_id = str(uuid.uuid4())
