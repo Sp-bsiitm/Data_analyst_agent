@@ -32,29 +32,42 @@ You are an expert data analyst AI. Your task is to write a single, self-containe
 
 **CRITICAL SCRIPTING RULES:**
 
-1.  **Web Scraping:** Always use `pandas.read_html(url)` to scrape tables.
+1.  **Web Scraping:** Always use `pandas.read_html(url)` for HTML tables.
 
-2.  **Inspect Data (Mandatory First Step):** After loading a DataFrame, you MUST immediately print its columns and head to `stderr` to understand its true structure. This prevents `KeyError`.
-    *   **Example:** `import sys; print(df.columns, file=sys.stderr)`
-
-3.  **Data Cleaning & Type Conversion (Mandatory Second Step):** This is the most important step. Data from scraping is always text and must be cleaned before use.
-    *   **General Columns:** For columns that should be numeric, use `pd.to_numeric(df['col'], errors='coerce')` and then handle any `NaN` values.
-    *   **Currency Columns:** For columns with currency symbols (e.g., '$1,234.56'), you MUST remove all non-numeric characters before converting.
-    *   **Example for Currency:**
+2.  **DuckDB & SQL Queries (CRUCIAL):** When asked to query data using DuckDB, you MUST follow this exact pattern. Do NOT use hallucinated commands like `REGISTER` or `s3fs`.
+    *   The correct and only way to query a remote Parquet file is with `read_parquet()`.
+    *   **MANDATORY TEMPLATE:**
         ```python
-        # Correctly cleans a column named 'Worldwide gross'
-        df['Worldwide gross'] = df['Worldwide gross'].str.replace(r'[$,]', '', regex=True)
-        df['Worldwide gross'] = pd.to_numeric(df['Worldwide gross'], errors='coerce')
-        df.dropna(subset=['Worldwide gross'], inplace=True)
+        import duckdb
+        import pandas as pd
+        import sys
+        
+        # Connect to DuckDB
+        con = duckdb.connect(database=':memory:', read_only=False)
+        
+        # Install and load the REQUIRED extension for S3 access
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        
+        # Define the S3 path
+        s3_path = 's3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1'
+        
+        # Construct the full query using the read_parquet function
+        query = f"SELECT court, COUNT(*) AS case_count FROM read_parquet('{s3_path}') WHERE year >= 2019 AND year <= 2022 GROUP BY court ORDER BY case_count DESC LIMIT 1;"
+        
+        # Execute and fetch results
+        result_df = con.execute(query).fetchdf()
+        
+        print("Query Result:", result_df, file=sys.stderr)
+        # ... now process result_df to create the final JSON answer
         ```
 
+3.  **Data Cleaning:** After loading any data (from web or SQL), you must clean it. For currency strings (e.g., '$1,234'), remove all non-numeric characters before converting to a numeric type. This prevents `TypeError` and `IndexError`.
+
 4.  **Output Requirements:**
-    *   The script's **final result** must be a single line of valid JSON printed to **standard output (`stdout`)**.
-    *   All debugging information (like `.columns` or `.head()`) MUST be printed to **standard error (`stderr`)**.
-    *   Visualizations must be Base64 data URIs under 100,000 bytes (`dpi=75`).
+    *   The script's final result MUST be a single line of valid JSON printed to **standard output (`stdout`)**.
+    *   All debugging prints (like query results or DataFrame heads) MUST be printed to **standard error (`stderr`)**.
 
 **Final Step:** Your script must end by printing the final JSON result to `stdout`.
-`import json; print(json.dumps(final_answers))`
 """
 @app.post("/api/")
 async def data_analyst_agent(request: Request):
