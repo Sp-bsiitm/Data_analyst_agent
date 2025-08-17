@@ -18,6 +18,11 @@ EXECUTION_TIMEOUT = 170  # Seconds (3 minutes is 180s, leave a buffer)
 
 app = FastAPI()
 
+@app.get("/")
+async def health_check():
+    """A simple health check endpoint that Render can use."""
+    return {"status": "ok"}
+   
 # --- System Prompt for the LLM Agent ---
 SYSTEM_PROMPT = """
 You are an expert data analyst AI. Your task is to write a single, self-contained Python script to answer a user's questions based on the provided text and files.
