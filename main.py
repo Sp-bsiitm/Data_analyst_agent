@@ -100,23 +100,32 @@ async def data_analyst_agent(request: Request):
         
         script_content = response.choices[0].message.content
         # Clean up the response to get raw Python code
-        # New, more robust cleanup logic to find and extract only the Python code
+        # Final, most robust cleanup logic to extract only the Python code.
+        # Attempt to find a markdown block first, as it's the most reliable.
         code_match = re.search(r"```python\n(.*?)\n```", script_content, re.DOTALL)
         if code_match:
-            # If the AI wrapped the code in ```python ... ```, extract it
             script_content = code_match.group(1).strip()
         else:
-            # If no markdown block is found, try to clean up the response anyway
-            # This handles cases where the LLM might just add text without the ```
-            lines = script_content.split('\n')
-            # A simple heuristic: find the first line that looks like Python
+            # If no markdown block, fallback to finding the start and end of the code.
+            lines = script_content.strip().split('\n')
             start_index = 0
+            end_index = len(lines) -1
+        
+            # Find the first line of code (e.g., the first import)
             for i, line in enumerate(lines):
-                if "import " in line or "def " in line or "print(" in line:
+                if line.strip().startswith(('import ', 'from ')):
                     start_index = i
                     break
-            script_content = '\n'.join(lines[start_index:])
-        
+            
+            # Find the last line of code (the final print statement)
+            for i in range(len(lines) - 1, start_index - 1, -1):
+                if lines[i].strip().startswith('print(json.dumps'):
+                    end_index = i
+                    break
+    
+            # Slice the list of lines to get only the code
+            script_content = '\n'.join(lines[start_index : end_index + 1])
+                
         script_path = os.path.join(work_dir, "agent_script.py")
         with open(script_path, "w") as f:
             f.write(script_content)
