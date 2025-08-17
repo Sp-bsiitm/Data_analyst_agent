@@ -1,0 +1,19 @@
+# Web Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# LLM
+openai
+
+# Data Analysis & Scraping
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+requests
+beautifulsoup4
+lxml
+duckdb
+pyarrow
