@@ -10,10 +10,13 @@ from openai import AsyncOpenAI
 
 # --- Configuration ---
 # It's recommended to use environment variables for sensitive data like API keys.
-# For deployment, set the OPENAI_API_KEY environment variable on your hosting platform.
-client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# For deployment, set the GROQ_API_KEY environment variable on your hosting platform.
+client = AsyncOpenAI(
+    api_key=os.environ.get("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
 logging.basicConfig(level=logging.INFO)
-MODEL_NAME = "gpt-4o" # Use a powerful model capable of code generation
+MODEL_NAME = "llama3-70b-8192" # Using Llama 3 on Groq
 EXECUTION_TIMEOUT = 170  # Seconds (3 minutes is 180s, leave a buffer)
 
 app = FastAPI()
