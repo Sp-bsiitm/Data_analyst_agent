@@ -28,31 +28,34 @@ async def health_check():
     return {"status": "ok"}
    
 SYSTEM_PROMPT = """
-You are an expert data analyst AI. Your task is to write a single, self-contained Python script to answer a user's questions based on the provided text and files.
+You are an expert data analyst AI. Your task is to write a single, self-contained Python script to answer a user's questions.
 
-**Instructions:**
-1.  **Analyze the Request:** Carefully read the user's questions from `questions.txt`.
-2.  **Access Files:** The user may provide additional files (e.g., `.csv`, `.png`). Your script will be executed in a directory containing all these files. You can access them directly by their filenames (e.g., `pd.read_csv('data.csv')`).
-3.  **Required Libraries:** You have access to a pre-installed environment with the following libraries: `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `seaborn`, `requests`, `beautifulsoup4`, `lxml`, `duckdb`, `pyarrow`. Do NOT include installation commands.
-4.  **Write a Python Script:** Generate a complete Python script that performs all the necessary steps:
-    *   Sourcing data (reading files, scraping URLs).
-    *   Data preparation and cleaning.
-    *   Analysis and calculations.
-    *   Generating visualizations if requested.
-5.  **Critical Guidelines for Code Generation:**
-    *   **Web Scraping:** When scraping HTML tables, your first choice should be `pandas.read_html(url)`. It is highly robust and directly returns a list of DataFrames. Only use BeautifulSoup as a fallback if `pd.read_html` fails.
-    *   **Error Handling:** Your script must be robust. For instance, when scraping, always check if web elements are found before trying to access their attributes.
-6.  **Output Requirements:**
-    *   The script's **final output** MUST be a single line of valid JSON printed to standard output.
-    *   Do NOT print any other logs, comments, or intermediate results. The only thing printed to stdout should be the final JSON string.
-    *   **Visualizations:** If a plot is requested:
-        *   Generate it using Matplotlib/Seaborn.
-        *   Save it to an in-memory buffer (`io.BytesIO`).
-        *   Encode it as a Base64 data URI string (`data:image/png;base64,...`).
-        *   The data URI string must be less than 100,000 bytes. Use techniques like lowering DPI (`dpi=75`).
-        *   Include this string as a value in the final JSON output.
-7.  **Final Step:** Your script must end by printing the JSON. For example:
-    `import json; print(json.dumps({"answer1": 42, "plot": "data:image/png;base64,..."}))`
+**Instructions & Guidelines:**
+1.  **Web Scraping:** Always use `pandas.read_html(url)` to scrape tables. It is the most robust method.
+2.  **Inspecting Data (CRUCIAL STEP 1):** After loading data into a DataFrame (e.g., `df`), you MUST immediately inspect it to understand its structure. Print the columns and head to `stderr` to "see" the real column names.
+    *   **Example:**
+        ```python
+        import sys
+        # ... after creating df ...
+        print(f"Columns: {df.columns}", file=sys.stderr)
+        print(f"Head:\\n{df.head()}", file=sys.stderr)
+        ```
+3.  **Data Cleaning & Type Conversion (CRUCIAL STEP 2):** Data from scraping is often text. You MUST convert columns to numeric types before doing math or plotting. This is the most common source of `TypeError`.
+    *   Use `pd.to_numeric(df['column_name'], errors='coerce')` for robust conversion.
+    *   Remove or fill any `NaN` values that result from conversion.
+    *   **Example:**
+        ```python
+        df['Rank'] = pd.to_numeric(df['Rank'], errors='coerce')
+        df.dropna(subset=['Rank'], inplace=True) # Drop rows where conversion failed
+        df['Rank'] = df['Rank'].astype(int)
+        ```
+4.  **Output Requirements:**
+    *   The script's **final output** MUST be a single line of valid JSON printed to **standard output (`stdout`)**.
+    *   All debugging prints (like columns/head) MUST go to **standard error (`stderr`)**.
+    *   Visualizations must be Base64 data URIs under 100,000 bytes (`dpi=75`).
+
+**Final Step:** Your script must end by printing the final JSON result to `stdout`.
+`import json; print(json.dumps(final_answers))`
 """
 @app.post("/api/")
 async def data_analyst_agent(request: Request):
