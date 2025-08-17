@@ -123,7 +123,10 @@ async def data_analyst_agent(request: Request):
         # 5. Apply hard-coded patch for known LLM errors
         script_content = script_content.replace("'Release year'", "'Year'")
         script_content = script_content.replace('["Release year"]', '["Year"]')
-        
+        # NEW -- Fix for DuckDB extension hallucination
+        script_content = script_content.replace("INSTALL s3fs", "INSTALL httpfs")
+        script_content = script_content.replace("LOAD s3fs", "LOAD httpfs")
+
         script_path = os.path.join(work_dir, "agent_script.py")
         with open(script_path, "w") as f:
             f.write(script_content)
